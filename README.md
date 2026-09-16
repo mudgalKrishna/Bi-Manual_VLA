@@ -140,6 +140,219 @@ Current status and the table structure:
 
 ---
 
+ ## Reproduce with the published SmolVLA weights
+
+  The complete fine-tuned checkpoint is publicly available on
+  [Hugging Face](https://huggingface.co/TASMAYU/Bi-Manual-SmolVLA). You do not
+  need to train the model again to test inference.
+
+  ### System requirements
+
+  - Python 3.10–3.12
+  - At least 16 GB system RAM recommended
+  - Internet access for the initial model download
+  - CPU inference works without a GPU
+  - NVIDIA CUDA, Intel GPU, or Intel NPU are optional
+  - Intel GPU/NPU detection requires OpenVINO and the appropriate Intel drivers
+
+  ### 1. Clone and install
+
+  ```bash
+  git clone https://github.com/mudgalKrishna/Bi-Manual_VLA.git
+  cd Bi-Manual_VLA
+
+  python -m venv .venv
+  ```
+
+  Activate the environment on Linux or macOS:
+
+  ```bash
+  source .venv/bin/activate
+  ```
+
+  Activate it on Windows PowerShell:
+
+  ```powershell
+  .venv\Scripts\Activate.ps1
+  ```
+
+  Install the dependencies:
+
+  ```bash
+  python -m pip install --upgrade pip
+  pip install -r requirements.txt
+  pip install openvino
+  ```
+
+  ### 2. Download the fine-tuned checkpoint
+
+  The following command downloads the exact checkpoint revision used by this
+  repository:
+
+  ```bash
+  python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='TASMAYU/Bi-Manual-SmolVLA', revision='c082d6138a437fe1d620212a5531520b5d8dd369',
+  local_dir='models/Bi-Manual-SmolVLA')"
+  ```
+
+  SmolVLA uses the public SmolVLM2 backbone. Cache it before the first inference:
+
+  ```bash
+  python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='HuggingFaceTB/SmolVLM2-500M-Video-Instruct')"
+  ```
+
+  A Hugging Face token is not required because both repositories are public.
+
+  The downloaded checkpoint directory should contain:
+
+  ```text
+  models/Bi-Manual-SmolVLA/
+  ├── config.json
+  ├── model.safetensors
+  ├── policy_preprocessor.json
+  ├── policy_postprocessor.json
+  ├── tokenizer.json
+  ├── tokenizer_config.json
+  └── train_config.json
+  ```
+
+  ### 3. Validate the checkpoint
+
+  ```bash
+  python scripts/run_intel_inference.py \
+      --checkpoint models/Bi-Manual-SmolVLA
+  ```
+
+  Windows PowerShell:
+
+  ```powershell
+  python scripts\run_intel_inference.py `
+      --checkpoint models\Bi-Manual-SmolVLA
+  ```
+
+  A valid checkpoint reports:
+
+  ```json
+  {
+    "complete": true,
+    "missing": []
+  }
+  ```
+
+  ### 4. Run fine-tuned SmolVLA inference
+
+  ```bash
+  python scripts/smolvla_policy_adapter.py \
+      --checkpoint models/Bi-Manual-SmolVLA \
+      --instruction "Open the drawer and set the dinner table for two."
+  ```
+
+  Windows PowerShell:
+
+  ```powershell
+  python scripts\smolvla_policy_adapter.py `
+      --checkpoint models\Bi-Manual-SmolVLA `
+      --instruction "Open the drawer and set the dinner table for two."
+  ```
+
+  Expected result:
+
+  ```text
+  'action_shape': [1, 12]
+  ```
+
+  The output contains twelve normalized joint-position actions: six for arm A
+  and six for arm B.
+
+  > This is an inference-interface smoke test using zero-valued camera and robot-state
+  > inputs. It verifies checkpoint loading, language conditioning, and the 12-D action
+  > output. It is not a closed-loop task-success evaluation.
+
+  ### 5. Benchmark the policy on the available hardware
+
+  Run a reproducible PyTorch CPU benchmark:
+
+  ```bash
+  python benchmark_intel_devices.py \
+      --checkpoint models/Bi-Manual-SmolVLA \
+      --torch-device cpu \
+      --iters 20 \
+      --warmup 3 \
+      --skip-openvino \
+      --out benchmark_results_cpu.json
+  ```
+
+  Windows PowerShell:
+
+  ```powershell
+  python benchmark_intel_devices.py `
+      --checkpoint models\Bi-Manual-SmolVLA `
+      --torch-device cpu `
+      --iters 20 `
+      --warmup 3 `
+      --skip-openvino `
+      --out benchmark_results_cpu.json
+  ```
+
+  The result is saved to:
+
+  ```text
+  benchmark_results_cpu.json
+  ```
+
+  Every reported latency includes an explicit iteration count and is compared
+  against the 40 ms/action budget of the 25 Hz controller.
+
+  ### 6. Check Intel OpenVINO devices
+
+  ```bash
+  python -c "import openvino as ov; print({'openvino': ov.__version__, 'available_devices': ov.Core().available_devices})"
+  ```
+
+  On the intended Intel Core Ultra deployment target, the expected devices are:
+
+  ```text
+  ['CPU', 'GPU', 'NPU']
+  ```
+
+  Device discovery confirms that the OpenVINO runtime and Intel drivers can see
+  the hardware. The complete stateful SmolVLA policy has not yet been exported as
+  a single OpenVINO IR graph, so current end-to-end reference inference uses
+  PyTorch.
+
+  ### 7. Reproduce the MuJoCo reference demonstration
+
+  Linux or macOS:
+
+  ```bash
+  DEMO_NO_RENDER=1 python scripts/task_demo.py
+  ```
+
+  Windows PowerShell:
+
+  ```powershell
+  $env:DEMO_NO_RENDER="1"
+  python scripts\task_demo.py
+  ```
+
+  A successful reference rollout ends with:
+
+  ```text
+  RESULT: SUCCESS — table set for two!
+  ```
+
+  Additional dataset-generation and collection instructions are available in
+  [`docs/REPRODUCE.md`](docs/REPRODUCE.md).
+
+  This section is sufficient for someone with their own hardware to:
+
+  1. Download your actual fine-tuned weights.
+  2. Confirm that the checkpoint is complete.
+  3. Produce a real 12-dimensional action.
+  4. Benchmark PyTorch inference on their CPU or CUDA GPU.
+  5. check whether OpenVINO detects their Intel CPU, GPU, and NPU.
+  6. Reproduce the MuJoCo reference demonstration.
+
+
 ## Repository layout
 
 ```
