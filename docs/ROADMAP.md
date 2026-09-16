@@ -11,20 +11,26 @@ Honest state of the project, including what does not work.
 - [x] Parallel collectors: 10-worker GPU fan-out, 4-worker CPU shards
 - [x] Merge with hard validation and a written merge report
 - [x] Rejection accounting — failed rollouts retained, never silently dropped
+- [x] Demonstration dataset — 71 episodes, 218,384 frames, 25 Hz, LeRobot v3
+- [x] Ten language paraphrases over the task instruction
+- [x] SmolVLA fine-tune to step 4,000 of 6,826 — checkpoint loads and runs
+- [x] Policy inference on Intel hardware — emits a valid 12-D action
+- [x] OpenVINO runtime sees CPU, GPU and NPU on the target platform
 
 ## In progress
 
-- [ ] Dataset generation — no published episode count yet
-- [ ] Pilot verification on the target hardware (see `docs/REPRODUCE.md` step 3)
+- [ ] SmolVLA fine-tune — 4,000 / 6,826 steps (58.6%)
+- [ ] CPU / GPU / NPU benchmark sweep with energy per inference
+- [ ] Demonstration generator stability — 7 of 10 seeds diverge during collection
 
 ## Not started
 
-- [ ] SmolVLA fine-tune. The recipe sketch and its open questions are in
-      `docs/DATASET.md`. The unresolved items are the four-camera-to-three-camera
-      remap and the warmup schedule.
+- [ ] OpenVINO IR conversion and quantization. Device detection is confirmed; the
+      model has not been converted.
 - [ ] Held-out evaluation of the trained policy. Planning to report per-object
-      placement error against the 8 mm threshold the expert already uses, not
+      placement error against the 8 mm threshold the generator already uses, not
       just training loss.
+- [ ] Rendered video capture for the accepted episodes.
 - [ ] Published dataset card with measured frame counts and rejection rate.
 
 ## Known limitations
@@ -44,9 +50,11 @@ render path.
 **Simulation only.** No physical SO-101 has run this policy. Sim-to-real transfer
 is out of scope and untested.
 
-**No language conditioning.** The task instruction is a fixed string. The dataset
-carries it as the `task` field for schema compatibility, but there is no language
-variation to learn from. SmolVLA will accept the field and learn nothing from it.
+**Language variation is template-level.** The dataset carries ten paraphrases of the
+task instruction, so the `task` field is not constant. The paraphrases are authored,
+not collected, and they describe the same task — a policy trained on them should be
+robust to phrasing, not to a genuinely different goal. Reporting generalization to
+novel tasks would require instructions this dataset does not contain.
 
 **The expert is not a controller.** `task_demo.py` is a scripted demonstration
 generator. It reads simulator state freely and is not a deployable policy. Do not
@@ -56,5 +64,5 @@ cite its success rate as a policy result.
 
 - Pouring, hand-to-hand transfers, deformable objects
 - More than two place settings
-- Real-time inference or latency work
 - Multi-task or multi-scene generalization
+- Sim-to-real transfer

@@ -51,7 +51,7 @@ Not vendored — installed from PyPI. Each retains its own license.
 | [LeRobot](https://github.com/huggingface/lerobot) | Apache-2.0 | Dataset format and recording |
 | [Warp](https://github.com/NVIDIA/warp) | Apache-2.0 | CUDA kernel runtime |
 | [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) | MIT | Environment interface |
-| [SciPy](https://github.com/scipy/scipy) | BSD-3-Clause | IK least-squares solve |
+| [SciPy](https://github.com/scipy/scipy) | BSD-3-Clause | Bounded numerical optimization |
 | [NumPy](https://github.com/numpy/numpy) | BSD-3-Clause | arrays |
 | [mediapy](https://github.com/google/mediapy) | Apache-2.0 | video/image helpers |
 | [PyAV](https://github.com/PyAV-Org/PyAV) | BSD-3-Clause | video encoding |

@@ -92,8 +92,10 @@ Do not report an intended episode count as an achieved one. If the run produced 
 
 ## SmolVLA fine-tune
 
-Not yet run. This is the intended recipe, with the reasoning recorded so it can be
-critiqued rather than guessed at.
+**In progress — 4,000 of 6,826 steps (58.6%).** The checkpoint loads and emits a valid
+12-D action on the Intel target. This is the recipe being used, with the reasoning
+recorded so it can be critiqued rather than guessed at. Measured figures:
+[`RESULTS.md`](RESULTS.md).
 
 ### Camera mismatch — read this first
 
@@ -111,7 +113,7 @@ save it — the overhead view is where object positions are least occluded by th
 | Setting | Value | Note |
 | --- | --- | --- |
 | `batch_size` | 64 | 128–256 fits comfortably in 96 GB for a ~450M model |
-| `steps` | 20000 | ≈4.5 epochs at 120 episodes |
+| `steps` | 6826 | 2 epochs at 71 episodes — 3,413 steps/epoch |
 | `scheduler_warmup_steps` | 200 | LeRobot ships 1000 — see below |
 | `num_workers` | 8+ | four video streams is a heavy decode load |
 
