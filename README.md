@@ -112,7 +112,20 @@ power-constrained part: the fastest device is not always the one that can be sus
 The environment runs at 25 Hz, so a policy inference must complete inside **40 ms** to
 drive the robot in real time. Every device is measured against that threshold.
 
-Measurements are in progress. Current status and the table structure:
+**Power is measured from a counter, not a datasheet.** The harness samples an Intel
+package energy counter around the same timed loop as the latency. Where the host exposes
+no such counter — as on the Windows target — it records the field as `null` and prints
+`power: not measured`, rather than filling the column from a TDP.
+
+Measurements are in progress. Run the sweep on the target, then on the ten-seed
+generator sweep:
+
+```bash
+python benchmark_intel_devices.py --checkpoint <pretrained_model> --iters 20
+python scripts/evaluate_10_seeds.py            # one process per seed
+```
+
+Current status and the table structure:
 [`docs/RESULTS.md`](docs/RESULTS.md#benchmarking--cpu--gpu--npu).
 
 ---
@@ -127,7 +140,12 @@ Bi-Manual_VLA/
 │   ├── task_demo.py               demonstration generator — the physics authority
 │   ├── record_molab_mjwarp.py     GPU collector: CPU physics + Warp rendering
 │   ├── record_lerobot_shard.py    CPU collector: sharded fallback
-│   └── merge_molab_episodes.py    episode checkpoints → one LeRobot v3 dataset
+│   ├── merge_molab_episodes.py    episode checkpoints → one LeRobot v3 dataset
+│   ├── evaluate_10_seeds.py       ten-seed sweep; aggregates per-seed success
+│   ├── run_intel_inference.py     load the checkpoint on the Intel target
+│   ├── smolvla_policy_adapter.py  SmolVLA → 4-camera, 12-D interface
+│   ├── export_smolvla_openvino.py export the policy to OpenVINO IR
+│   └── benchmark_intel_openvino.py per-device IR latency
 ├── benchmark_intel_devices.py     CPU / GPU / NPU sweep for the Intel target
 ├── assets/meshes/                 tableware; coacd/ holds collision decompositions
 ├── third_party/SO-ARM100/         vendored SO-101 model (Apache-2.0)

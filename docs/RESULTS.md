@@ -117,13 +117,21 @@ edge part: the fastest device is not always the one that can be sustained.
 
 ### Metrics
 
-| Metric | Why it is reported |
-| --- | --- |
-| Throughput (inferences/s) | Raw wall-clock capability |
-| Mean latency (ms/action) | Compared against the **40 ms** real-time control budget |
-| Package power (W) | Sustained draw, measured over the timed loop |
-| Energy per inference (mJ) | Power × latency — the cost of one decision |
-| Efficiency (inferences/s/W) | Throughput per watt; decides the deployment target |
+| Metric | Source | Why it is reported |
+| --- | --- | --- |
+| Throughput (inferences/s) | Timed loop, explicit iteration count | Raw wall-clock capability |
+| Mean latency (ms/action) | Same loop, chunk ÷ 50 | Compared against the **40 ms** real-time control budget |
+| Package power (W) | Package energy counter, sampled around the same loop | Sustained draw — the number that decides an edge deployment |
+| Energy per inference (mJ) | Counter delta ÷ iterations | The cost of one decision |
+| Efficiency (inferences/s/W) | Derived from the two above | Throughput per watt; decides the deployment target |
+
+**Power has to come from a counter, not a datasheet.** The harness reads an Intel
+package energy counter through the RAPL powercap interface where the host exposes one,
+and samples it around the same timed loop as the latency — so power and latency describe
+the same calls rather than two different runs. The Windows deployment target exposes no
+unprivileged equivalent. There the harness records `"package_power_w": null`, prints
+`power: not measured`, and leaves the energy columns empty. Filling them needs an
+external meter or a Linux run of the same harness; a TDP figure is not a substitute.
 
 ### Real-time budget
 
@@ -135,7 +143,9 @@ is the threshold every device is measured against.
 ### Results
 
 Measurements will be added here once the sweep completes. The harness reports an
-explicit iteration count with every figure, so each number carries its own denominator.
+explicit iteration count with every figure, so each number carries its own denominator,
+and it names its power source so an empty energy column is legible as *not measured*
+rather than as zero.
 
 | Device | Throughput (inf/s) | Latency (ms/action) | Package power (W) | Energy (mJ/inf) | Efficiency (inf/s/W) | Meets 40 ms |
 | --- | --- | --- | --- | --- | --- | --- |

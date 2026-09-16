@@ -67,6 +67,51 @@ TASK = "Open the drawer and set the table for two with both plates, forks, spoon
 
 
 # --------------------------------------------------------------------------
+# Package power
+#
+# Energy per inference is the metric that decides an edge deployment, so it has
+# to come from a counter and not from a datasheet TDP. Linux exposes an Intel
+# package counter through the RAPL powercap interface. Windows -- the actual
+# deployment target -- has no unprivileged equivalent, so power is reported as
+# *not measured* rather than quietly dropped. An external meter, or a Linux run
+# of this same harness, is how that column gets filled in.
+# --------------------------------------------------------------------------
+def discover_rapl_counter() -> Path | None:
+    """Return the package-0 RAPL energy counter if this machine exposes one."""
+    root = Path("/sys/class/powercap")
+    if not root.is_dir():
+        return None
+    for entry in sorted(root.glob("intel-rapl:*")):
+        energy_file = entry / "energy_uj"
+        try:
+            if energy_file.exists() and \
+                    (entry / "name").read_text(encoding="utf-8").strip() == "package-0":
+                return energy_file
+        except OSError:
+            continue
+    return None
+
+
+def read_energy_uj(path: Path) -> int:
+    return int(path.read_text(encoding="utf-8").strip())
+
+
+def power_reader(counter: Path | None):
+    """Bind a reader to `counter`, or return None when there is nothing to read.
+
+    Returning None is the normal case on Windows. Every consumer treats it as
+    "power not measured" and leaves the fields null.
+    """
+    if counter is None:
+        return None
+    try:
+        read_energy_uj(counter)
+    except (OSError, ValueError):
+        return None
+    return lambda: read_energy_uj(counter)
+
+
+# --------------------------------------------------------------------------
 # Input construction
 # --------------------------------------------------------------------------
 def build_batch(torch, batch_size: int = 1):
@@ -114,13 +159,18 @@ def count_params(policy) -> int:
 # --------------------------------------------------------------------------
 # Timing core
 # --------------------------------------------------------------------------
-def time_calls(fn, iters: int, warmup: int) -> dict:
+def time_calls(fn, iters: int, warmup: int, energy_reader=None) -> dict:
     """Time `fn` iters times after `warmup` untimed calls.
 
     Reports first-call latency separately from steady state: the first call on
     any device includes kernel compilation and memory allocation, which is why
     the earlier report's single 16.17 s figure was ambiguous. Here it is
     explicitly separated and excluded from the mean.
+
+    When `energy_reader` is supplied, the package energy counter is sampled
+    around the timed loop, so power and energy/inference come from the same
+    calls as the latency. A counter that wraps or goes backwards is treated as
+    a failed reading, not as a negative joule count.
     """
     first_ms = None
     for i in range(warmup):
@@ -129,15 +179,32 @@ def time_calls(fn, iters: int, warmup: int) -> dict:
         if i == 0:
             first_ms = (time.perf_counter() - t0) * 1000.0
 
+    joules = None
+    if energy_reader is not None:
+        try:
+            e0 = energy_reader()
+        except (OSError, ValueError):
+            e0 = None
+    else:
+        e0 = None
+
     samples = []
     for _ in range(iters):
         t0 = time.perf_counter()
         fn()
         samples.append((time.perf_counter() - t0) * 1000.0)
 
+    if e0 is not None:
+        try:
+            e1 = energy_reader()
+            if e1 > e0:
+                joules = (e1 - e0) / 1e6   # microjoules -> joules
+        except (OSError, ValueError):
+            joules = None
+
     samples.sort()
     n = len(samples)
-    return {
+    result = {
         "iters": n,
         "first_call_ms": round(first_ms, 2) if first_ms is not None else None,
         "mean_ms": round(statistics.fmean(samples), 2),
@@ -146,7 +213,17 @@ def time_calls(fn, iters: int, warmup: int) -> dict:
         "min_ms": round(samples[0], 2),
         "max_ms": round(samples[-1], 2),
         "stdev_ms": round(statistics.pstdev(samples), 2) if n > 1 else 0.0,
+        "package_power_w": None,
+        "energy_per_inference_mj": None,
+        "efficiency_inf_per_s_per_w": None,
     }
+    if joules is not None:
+        elapsed_s = sum(samples) / 1000.0
+        if joules > 0 and elapsed_s > 0:
+            result["package_power_w"] = round(joules / elapsed_s, 2)
+            result["energy_per_inference_mj"] = round(joules * 1000.0 / n, 2)
+            result["efficiency_inf_per_s_per_w"] = round(n / joules, 3)
+    return result
 
 
 def budget_verdict(chunk_ms: float) -> dict:
@@ -162,7 +239,7 @@ def budget_verdict(chunk_ms: float) -> dict:
 # --------------------------------------------------------------------------
 # Backend 1 -- PyTorch (always available, gives the honest baseline)
 # --------------------------------------------------------------------------
-def bench_torch(policy, obs, iters: int, warmup: int) -> dict:
+def bench_torch(policy, obs, iters: int, warmup: int, energy_reader=None) -> dict:
     import torch
 
     def call():
@@ -176,7 +253,7 @@ def bench_torch(policy, obs, iters: int, warmup: int) -> dict:
             policy.reset()
         call()
 
-    return time_calls(call_fresh_chunk, iters, warmup)
+    return time_calls(call_fresh_chunk, iters, warmup, energy_reader)
 
 
 # --------------------------------------------------------------------------
@@ -236,7 +313,7 @@ def export_openvino(policy, obs, out_dir: Path) -> tuple:
         return None, traceback.format_exc(limit=3), None
 
 
-def bench_ov(core, ov_model, device: str, iters: int, warmup: int) -> dict:
+def bench_ov(core, ov_model, device: str, iters: int, warmup: int, energy_reader=None) -> dict:
     """Compile for one device and time it. NPU compilation commonly fails on
     models of this size -- catch it and report the reason."""
     compiled = core.compile_model(ov_model, device)
@@ -257,7 +334,7 @@ def bench_ov(core, ov_model, device: str, iters: int, warmup: int) -> dict:
     def call():
         infer.infer(inputs)
 
-    return time_calls(call, iters, warmup)
+    return time_calls(call, iters, warmup, energy_reader)
 
 
 # --------------------------------------------------------------------------
@@ -273,6 +350,9 @@ def main() -> int:
     ap.add_argument("--out", default="benchmark_results.json")
     ap.add_argument("--ir-dir", default="openvino_ir")
     ap.add_argument("--skip-openvino", action="store_true")
+    ap.add_argument("--power-counter", type=Path, default=None,
+                    help="path to a RAPL energy_uj counter; auto-detected on Linux. "
+                         "Absent on Windows -- power is then reported as not measured")
     args = ap.parse_args()
 
     if not Path(args.checkpoint).is_dir():
@@ -294,12 +374,27 @@ def main() -> int:
         "results": {},
     }
 
+    counter = args.power_counter or discover_rapl_counter()
+    energy_reader = power_reader(counter)
+    report["power"] = {
+        "counter": str(counter) if counter else None,
+        "measured": energy_reader is not None,
+        "note": (
+            "package energy sampled from a RAPL counter around the same timed loop "
+            "as the latency"
+            if energy_reader is not None else
+            "no RAPL counter on this host -- package power and energy per inference "
+            "are NOT measured and are reported as null"
+        ),
+    }
+
     print("=" * 74)
     print("SmolVLA Intel device benchmark")
     print("=" * 74)
     print(f"checkpoint : {args.checkpoint}")
     print(f"iters      : {args.iters}  (warmup {args.warmup}, excluded from the mean)")
     print(f"budget     : {BUDGET_MS_PER_ACTION:.0f} ms/action  ({1/CONTROL_PERIOD_S:.0f} Hz control)")
+    print(f"power      : {counter if energy_reader is not None else 'not measured (no RAPL counter)'}")
     print()
 
     # ---- load ----
@@ -324,12 +419,18 @@ def main() -> int:
     print(f"PyTorch baseline ({args.torch_device})")
     print("-" * 74)
     try:
-        r = bench_torch(policy, obs, args.iters, args.warmup)
+        r = bench_torch(policy, obs, args.iters, args.warmup, energy_reader)
         r.update(budget_verdict(r["mean_ms"]))
         report["results"][f"pytorch_{args.torch_device}"] = r
         print(f"  chunk mean {r['mean_ms']:.1f} ms -> {r['ms_per_action']:.2f} ms/action, "
               f"{r['actions_per_second']:.1f} actions/s")
         print(f"  first call {r['first_call_ms']:.1f} ms (compile+alloc, excluded from mean)")
+        if r["package_power_w"] is None:
+            print("  power      not measured on this host")
+        else:
+            print(f"  power      {r['package_power_w']:.1f} W -> "
+                  f"{r['energy_per_inference_mj']:.1f} mJ/inference, "
+                  f"{r['efficiency_inf_per_s_per_w']:.2f} inf/s/W")
         print(f"  25 Hz realtime: {'PASS' if r['meets_25hz_realtime'] else 'FAIL'}")
     except Exception:
         report["results"][f"pytorch_{args.torch_device}"] = {"error": traceback.format_exc(limit=3)}
@@ -381,11 +482,17 @@ def main() -> int:
     for device in args.devices:
         print(f"  [{device}]")
         try:
-            r = bench_ov(core, ov_model, device, args.iters, args.warmup)
+            r = bench_ov(core, ov_model, device, args.iters, args.warmup, energy_reader)
             r.update(budget_verdict(r["mean_ms"]))
             report["results"][f"openvino_{device}"] = r
             print(f"    chunk mean {r['mean_ms']:.1f} ms -> {r['ms_per_action']:.2f} ms/action, "
                   f"{r['actions_per_second']:.1f} actions/s")
+            if r["package_power_w"] is None:
+                print("    power        not measured on this host")
+            else:
+                print(f"    power        {r['package_power_w']:.1f} W -> "
+                      f"{r['energy_per_inference_mj']:.1f} mJ/inference, "
+                      f"{r['efficiency_inf_per_s_per_w']:.2f} inf/s/W")
             print(f"    25 Hz realtime: {'PASS' if r['meets_25hz_realtime'] else 'FAIL'}")
         except Exception as e:
             report["results"][f"openvino_{device}"] = {
@@ -403,16 +510,22 @@ def main() -> int:
     # ---- summary ----
     print()
     print("=" * 74)
-    print(f"{'device':<22}{'ms/action':>12}{'actions/s':>12}{'25Hz':>8}")
+    print(f"{'device':<22}{'ms/action':>12}{'actions/s':>12}{'25Hz':>8}{'mJ/inf':>10}")
     print("-" * 74)
     for name, r in report["results"].items():
         if "error" in r:
-            print(f"{name:<22}{'--':>12}{'--':>12}{'n/a':>8}")
+            print(f"{name:<22}{'--':>12}{'--':>12}{'n/a':>8}{'--':>10}")
         else:
+            power = ("--" if r["energy_per_inference_mj"] is None
+                     else f"{r['energy_per_inference_mj']:.1f}")
             print(f"{name:<22}{r['ms_per_action']:>12.2f}{r['actions_per_second']:>12.1f}"
-                  f"{('PASS' if r['meets_25hz_realtime'] else 'FAIL'):>8}")
+                  f"{('PASS' if r['meets_25hz_realtime'] else 'FAIL'):>8}{power:>10}")
     print("=" * 74)
     print()
+    if energy_reader is None:
+        print("Power and energy/inference are NOT measured: this host exposes no RAPL")
+        print("counter. Do not fill that column from a datasheet -- leave it absent.")
+        print()
     print("Reminder: report ms/action WITH the iters count. A latency without a")
     print("denominator is not a measurement -- that is what went wrong with")
     print("smolvla_cpu_timing.txt.")
