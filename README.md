@@ -1,7 +1,6 @@
+# Bi-Manual VLA
 
 https://github.com/user-attachments/assets/dab00a29-e0a8-4472-82f8-13354f15b50a
-
-# Bi-Manual VLA
 
 **Two SO-101 arms learn to clear and set a dinner table. Simulated contact physics
 generates the demonstrations; a Vision-Language-Action policy learns from them and is
