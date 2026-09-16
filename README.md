@@ -63,7 +63,7 @@ fall back to a CPU rasteriser. See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOT
 | Kaggle CPU collector (`scripts/record_lerobot_shard.py`) | Working — 4-worker sharded fallback |
 | Merge + validation (`scripts/merge_molab_episodes.py`) | Working |
 | Dataset | **71 episodes · 218,384 frames · 25 Hz** |
-| SmolVLA fine-tune | **4,000 / 6,826 steps (58.6%)** — checkpoint loads and runs |
+| SmolVLA fine-tune | **4,000 / 6,826 steps (58.6%)** — checkpoint loads and runs · [weights](https://huggingface.co/TASMAYU/Bi-Manual-SmolVLA) |
 | Intel inference | **Working** — policy emits a valid 12-D action |
 | OpenVINO IR conversion | Not started — device detection only |
 | CPU / GPU / NPU benchmark sweep | Harness ready, measurements pending |
@@ -72,6 +72,9 @@ fall back to a CPU rasteriser. See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOT
 All figures above are read from recorded artifacts. **No policy success rate is claimed,
 because none has been measured yet.** See [`docs/RESULTS.md`](docs/RESULTS.md) for the
 full results and what each number is measured against.
+
+**Model weights:** [**`TASMAYU/Bi-Manual-SmolVLA`**](https://huggingface.co/TASMAYU/Bi-Manual-SmolVLA)
+— the fine-tuned policy is published on Hugging Face as Safetensors (MIT).
 
 ---
 
