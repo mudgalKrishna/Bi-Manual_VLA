@@ -1,0 +1,34 @@
+# Runtime dependencies, grouped by which part of the pipeline needs them.
+#
+#   expert + CPU path .......... mujoco, dm_control, gymnasium, mediapy, scipy
+#   LeRobot recording .......... lerobot, av, pyarrow
+#   GPU render path ............ mujoco-warp, warp-lang  (and a CUDA GPU)
+#   dataset plumbing ........... numpy, datasets, huggingface_hub, tqdm
+#   Drive upload ............... gdown, rclone (binary, not a pip package)
+#
+# MuJoCo is pinned because the v21 expert depends on `noslip` contact
+# behaviour, which is not guaranteed stable across releases. If you change
+# this pin, re-run `python scripts/task_demo.py` before trusting any dataset
+# generated afterwards.
+
+mujoco==3.13.0
+dm_control>=1.0.20
+gymnasium>=0.29
+mediapy>=1.2
+numpy>=1.26
+scipy>=1.11
+
+lerobot>=0.6.1
+av>=15.0.0,<16.0.0
+pyarrow>=15
+datasets>=2.19
+huggingface_hub>=0.23
+
+# GPU rendering. Install only if you are running record_molab_mjwarp.py;
+# mujoco-warp is a heavy CUDA build and is useless without a visible GPU.
+# mujoco-warp==3.13.0
+# warp-lang>=1.5
+
+# Python 3.13 only: dm_control pulls labmaze, which has no 3.13 wheel.
+# Install dm-control with --no-deps instead of letting pip resolve it.
+# See docs/TROUBLESHOOTING.md.

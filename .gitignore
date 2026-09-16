@@ -216,3 +216,21 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Project-generated output. Never commit any of this.
+# ---------------------------------------------------------------------------
+
+# Collector output: episode checkpoints, manifests, merge reports
+dinner_table_dataset/
+v21-out/
+v21-pilot/
+
+# Local run directories from the expert and probes
+.run/
+outputs/
+
+# rclone config and any credential material must never be committed
+rclone.conf
+*.rclone.conf
+.env

@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this dataset or pipeline in academic work, please cite it as below."
+title: "Bi-Manual VLA: a bimanual SO-101 dinner-table manipulation dataset and pipeline"
+abstract: >-
+  A reproducible pipeline that generates a bimanual SO-101 dinner-table
+  manipulation dataset in MuJoCo and fine-tunes a Vision-Language-Action policy
+  on it. Contact physics runs on CPU MuJoCo; image rendering runs on the GPU
+  through MuJoCo Warp's ray-traced batch renderer, requiring neither EGL nor
+  OpenGL.
+type: software
+authors:
+  - family-names: "Mudgal"
+    given-names: "Krishna"
+    email: "mudgalkrishna92@gmail.com"
+repository-code: "https://github.com/mudgalKrishna/Bi-Manual_VLA"
+url: "https://github.com/mudgalKrishna/Bi-Manual_VLA"
+license: MIT
+keywords:
+  - robotics
+  - bimanual manipulation
+  - imitation learning
+  - MuJoCo
+  - MuJoCo Warp
+  - LeRobot
+  - SmolVLA
+  - vision-language-action
+  - SO-101
+  - dataset generation

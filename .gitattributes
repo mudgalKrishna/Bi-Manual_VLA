@@ -1,0 +1,29 @@
+# Normalize line endings for text, and never let Git "fix" binary assets.
+* text=auto eol=lf
+
+*.py    text diff=python
+*.md    text
+*.txt   text
+*.cff   text
+*.xml   text
+*.json   text
+*.toml  text
+*.cfg   text
+
+# Binary assets — explicit so no filter or diff driver touches them.
+*.stl   binary
+*.part  binary
+*.stp   binary
+*.step  binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.mp4   binary
+*.zip   binary
+*.npz   binary
+*.safetensors binary
+*.bin   binary
+
+# Git LFS would be appropriate if the mesh set grows past a few hundred MB.
+# It is deliberately not used: the whole repository is ~20 MB, and a plain
+# clone is the most reproducible thing a reader can do.
