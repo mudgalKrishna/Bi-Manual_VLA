@@ -53,7 +53,7 @@ fall back to a CPU rasteriser. See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOT
 | Component | State |
 | --- | --- |
 | Bimanual MuJoCo environment | Working — contact-only grasping, four cameras |
-| Demonstration generator (`scripts/task_demo.py`) | Working — physics validated |
+| Demonstration generator (`scripts/task_demo.py`) | Physics validated — 7 of 10 seeds diverge; stability work in progress |
 | Molab GPU collector (`scripts/record_molab_mjwarp.py`) | Working — 10 parallel workers, 320×320, AV1 |
 | Kaggle CPU collector (`scripts/record_lerobot_shard.py`) | Working — 4-worker sharded fallback |
 | Merge + validation (`scripts/merge_molab_episodes.py`) | Working |
