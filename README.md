@@ -7,7 +7,7 @@ bottle, and open a drawer. A scripted expert produces physically valid demonstra
 those are recorded into a [LeRobot v3](https://github.com/huggingface/lerobot) dataset
 and used to fine-tune [SmolVLA](https://huggingface.co/blog/smolvla).
 
-The distribution backend is deliberately split:
+The distribution backend is deliberately split:-
 
 | Stage | Runs on | Why |
 | --- | --- | --- |
