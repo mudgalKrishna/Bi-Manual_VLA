@@ -1,3 +1,6 @@
+
+https://github.com/user-attachments/assets/dab00a29-e0a8-4472-82f8-13354f15b50a
+
 # Bi-Manual VLA
 
 **Two SO-101 arms learn to clear and set a dinner table. Simulated contact physics
@@ -8,8 +11,6 @@ Two SO-101 arms open a drawer, retrieve cutlery, pick up two plates and a mug, a
 every object in its target zone — upright, separated, and supported by the table.
 Demonstrations are recorded into a [LeRobot v3](https://github.com/huggingface/lerobot)
 dataset and used to fine-tune [SmolVLA](https://huggingface.co/blog/smolvla).
-
-https://github.com/user-attachments/assets/dab00a29-e0a8-4472-82f8-13354f15b50a
 
 **The grasping is physical.** The jaws are position servos that drive into an object and
 stall against it; the resulting contact force is the grip. There is no weld constraint, no
